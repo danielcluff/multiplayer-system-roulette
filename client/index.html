@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>System Roulette</title>
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+  <!-- Lobby Screen -->
+  <div id="lobby" class="screen">
+    <div class="lobby-content">
+      <h1>SYSTEM ROULETTE</h1>
+      <p class="subtitle">Terminate or be terminated</p>
+      <div id="lobby-status">Connecting to server...</div>
+      <button id="join-btn" class="btn" disabled>JOIN GAME</button>
+    </div>
+  </div>
+
+  <!-- Game Screen (Three.js canvas container) -->
+  <div id="game" class="screen hidden">
+    <canvas id="game-canvas"></canvas>
+
+    <!-- Player Identity (top left) -->
+    <div id="player-identity">You are: <span id="my-player-id">?</span></div>
+
+    <!-- Fullscreen Toggle (top right) -->
+    <button id="fullscreen-btn" title="Toggle Fullscreen">[ ]</button>
+
+    <!-- Game UI Overlay (bottom center) -->
+    <div id="game-ui">
+      <div id="turn-indicator">
+        <span id="current-player">Player 1's Turn</span>
+      </div>
+      <div id="process-count">
+        Processes remaining: <span id="count">0</span>
+      </div>
+      <button id="spin-btn" class="btn" disabled>SPIN</button>
+    </div>
+  </div>
+
+  <!-- BSOD Overlay (shown to loser) -->
+  <div id="bsod" class="screen hidden">
+    <div class="bsod-content">
+      <div class="bsod-sad">:(</div>
+      <h1>Your PC ran into a problem.</h1>
+      <div class="bsod-info">
+        <div class="bsod-qr"></div>
+        <div class="bsod-details">
+          <p>For more information about this issue and possible fixes, visit</p>
+          <p>https://www.windows.com/stopcode</p>
+          <p class="stop-code">Stop code: CRITICAL_PROCESS_DIED</p>
+          <p class="failed-process">What failed: <span id="failed-process-name">kernel32.sys</span></p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Victory Overlay (shown to winner) -->
+  <div id="victory" class="screen hidden">
+    <div class="victory-content">
+      <h1>VICTORY</h1>
+      <p>Your opponent's system has crashed!</p>
+      <button id="play-again-btn" class="btn">PLAY AGAIN</button>
+    </div>
+  </div>
+
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>

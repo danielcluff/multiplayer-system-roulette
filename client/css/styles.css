@@ -1,0 +1,250 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  background: #0a0a0a;
+  color: #fff;
+  overflow: hidden;
+  width: 100vw;
+  height: 100vh;
+}
+
+.screen {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.screen.hidden {
+  display: none;
+}
+
+/* Lobby Screen */
+#lobby {
+  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+}
+
+.lobby-content {
+  text-align: center;
+}
+
+.lobby-content h1 {
+  font-size: 4rem;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  margin-bottom: 1rem;
+  text-shadow: 0 0 20px rgba(0, 150, 255, 0.5);
+}
+
+.subtitle {
+  font-size: 1.2rem;
+  color: #888;
+  margin-bottom: 2rem;
+}
+
+#lobby-status {
+  font-size: 1rem;
+  color: #aaa;
+  margin-bottom: 2rem;
+}
+
+.btn {
+  padding: 1rem 3rem;
+  font-size: 1.2rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  background: linear-gradient(135deg, #0066cc 0%, #0099ff 100%);
+  border: none;
+  border-radius: 4px;
+  color: #fff;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 5px 20px rgba(0, 150, 255, 0.4);
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Game Screen */
+#game {
+  background: #000;
+}
+
+#game-canvas {
+  width: 100%;
+  height: 100%;
+}
+
+#game-ui {
+  position: absolute;
+  bottom: 2rem;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+  z-index: 10;
+}
+
+#turn-indicator {
+  background: rgba(0, 0, 0, 0.7);
+  padding: 0.5rem 1.5rem;
+  border-radius: 20px;
+  font-size: 1.1rem;
+}
+
+#turn-indicator.your-turn {
+  background: rgba(0, 100, 200, 0.7);
+  animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(0, 150, 255, 0.4); }
+  50% { box-shadow: 0 0 0 10px rgba(0, 150, 255, 0); }
+}
+
+#process-count {
+  font-size: 0.9rem;
+  color: #aaa;
+}
+
+#player-identity {
+  position: absolute;
+  top: 1rem;
+  left: 1rem;
+  background: rgba(0, 0, 0, 0.8);
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  font-size: 0.9rem;
+  color: #00ff88;
+  border: 1px solid #00ff88;
+  z-index: 10;
+}
+
+#fullscreen-btn {
+  position: absolute;
+  top: 0;
+  right: 0;
+  padding: 2rem;
+  background: transparent;
+  border: none;
+  color: #fff;
+  font-size: 1.2rem;
+  font-family: monospace;
+  cursor: pointer;
+  z-index: 10;
+  opacity: 0.7;
+  transition: opacity 0.2s;
+}
+
+#fullscreen-btn:hover {
+  opacity: 1;
+}
+
+/* BSOD Screen */
+#bsod {
+  background: #0078d7;
+  flex-direction: column;
+  padding: 10%;
+}
+
+.bsod-content {
+  max-width: 800px;
+}
+
+.bsod-sad {
+  font-size: 8rem;
+  margin-bottom: 2rem;
+}
+
+.bsod-content h1 {
+  font-size: 1.8rem;
+  font-weight: 400;
+  margin-bottom: 1rem;
+}
+
+.bsod-content p {
+  font-size: 1rem;
+  margin-bottom: 0.5rem;
+}
+
+.bsod-info {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+  margin-top: 3rem;
+}
+
+.bsod-qr {
+  width: 100px;
+  height: 100px;
+  background: #fff;
+  flex-shrink: 0;
+}
+
+.bsod-details {
+  font-size: 0.75rem;
+}
+
+.bsod-details p {
+  margin-bottom: 0.25rem;
+}
+
+.stop-code {
+  margin-top: 1rem !important;
+}
+
+.failed-process {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+/* Victory Screen */
+#victory {
+  background: linear-gradient(135deg, #1a4a1a 0%, #0d2d0d 100%);
+}
+
+.victory-content {
+  text-align: center;
+}
+
+.victory-content h1 {
+  font-size: 5rem;
+  font-weight: 700;
+  color: #4caf50;
+  text-shadow: 0 0 30px rgba(76, 175, 80, 0.5);
+  margin-bottom: 1rem;
+}
+
+.victory-content p {
+  font-size: 1.5rem;
+  color: #aaa;
+  margin-bottom: 2rem;
+}
+
+/* Spin animation on button */
+#spin-btn.spinning {
+  animation: shake 0.1s infinite;
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-2px); }
+  75% { transform: translateX(2px); }
+}
