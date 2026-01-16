@@ -14,10 +14,11 @@ function generateId() {
 const rooms = new Map();
 let roomIdCounter = 1;
 
-// Create WebSocket server
-const wss = new WebSocketServer({ port: PORT });
+// Create WebSocket server (listen on all interfaces)
+const wss = new WebSocketServer({ port: PORT, host: '0.0.0.0' });
 
 console.log(`System Roulette server running on port ${PORT}`);
+console.log(`Accessible on the network at ws://<your-ip>:${PORT}`);
 
 /**
  * Generate a process pool (server-side to ensure sync)

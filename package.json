@@ -4,7 +4,7 @@
   "description": "A multiplayer game simulating system process roulette",
   "type": "module",
   "scripts": {
-    "dev": "vite client",
+    "dev": "vite client --host",
     "build": "vite build client",
     "server": "node server/index.js",
     "start": "npm run server & npm run dev"

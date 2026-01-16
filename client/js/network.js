@@ -7,9 +7,19 @@ let playerId = null;
 let messageHandlers = new Map();
 
 /**
+ * Get the WebSocket server URL based on current host
+ */
+function getServerUrl() {
+  const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+  const host = window.location.hostname || 'localhost';
+  return `${protocol}//${host}:3001`;
+}
+
+/**
  * Connect to the game server
  */
-export function connect(serverUrl = 'ws://localhost:3001') {
+export function connect(serverUrl = getServerUrl()) {
+  console.log('Connecting to server:', serverUrl);
   return new Promise((resolve, reject) => {
     try {
       ws = new WebSocket(serverUrl);

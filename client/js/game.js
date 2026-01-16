@@ -3,7 +3,7 @@
 import * as network from './network.js';
 import { updateScreenProcesses, highlightProcess, showScreenBSOD, getScreen } from './scene/screens.js';
 import { setHologramPlayer, updateHologramProcesses, highlightHologramProcess, showHologramBSOD } from './scene/hologram.js';
-import { spinRoulette, showFullScreenBSOD, showVictoryScreen, terminationFlash } from './scene/effects.js';
+import { spinRoulette, showFullScreenBSOD } from './scene/effects.js';
 import { GAME_CONFIG } from '../../shared/constants.js';
 
 // Game state
@@ -14,6 +14,26 @@ const state = {
   isSpinning: false,
   gameOver: false,
 };
+
+// Screen position mapping
+// Screen 1 = center, Screen 2 = right (60 deg), Screen 6 = left (300 deg)
+const SCREEN_CENTER = 1;
+const SCREEN_RIGHT = 2;
+const SCREEN_LEFT = 6;
+
+/**
+ * Map a game player ID to a physical screen ID based on local player's perspective
+ * Your screen is always in the center, opponent is to the side
+ */
+function getScreenIdForPlayer(targetPlayerId) {
+  if (state.playerId === 1) {
+    // Player 1's view: self = center, opponent (P2) = right
+    return targetPlayerId === 1 ? SCREEN_CENTER : SCREEN_RIGHT;
+  } else {
+    // Player 2's view: self = center, opponent (P1) = left
+    return targetPlayerId === 2 ? SCREEN_CENTER : SCREEN_LEFT;
+  }
+}
 
 // UI Elements
 let lobbyScreen, gameScreen, joinBtn, spinBtn, turnIndicator, processCount, currentPlayerSpan, myPlayerIdSpan;
@@ -105,7 +125,6 @@ function handleSpinClick() {
   if (state.currentTurn !== state.playerId) return;
 
   spinBtn.disabled = true;
-  spinBtn.classList.add('spinning');
   network.requestSpin();
 }
 
@@ -136,9 +155,13 @@ function handleGameStart(data) {
   lobbyScreen.classList.add('hidden');
   gameScreen.classList.remove('hidden');
 
-  // Update both player screens with processes
-  updateScreenProcesses(1, state.processes);
-  updateScreenProcesses(2, state.processes);
+  // Update both player screens with processes (mapped to correct physical screens)
+  const myScreenId = getScreenIdForPlayer(state.playerId);
+  const opponentId = state.playerId === 1 ? 2 : 1;
+  const opponentScreenId = getScreenIdForPlayer(opponentId);
+
+  updateScreenProcesses(myScreenId, state.processes);
+  updateScreenProcesses(opponentScreenId, state.processes);
 
   // Set hologram to current player
   setHologramPlayer(state.currentTurn);
@@ -173,24 +196,26 @@ async function handleSpinResult(data) {
   // Set hologram to spinning player
   setHologramPlayer(playerId);
 
+  // Get the physical screen ID for the spinning player
+  const spinningScreenId = getScreenIdForPlayer(playerId);
+
   // Get active processes for spin animation
   const activeProcesses = state.processes.filter(p => !p.isTerminated || p.id === selectedProcess.id);
 
-  // Run spin animation
-  await spinRoulette(playerId, { filter: () => activeProcesses }, targetIndex);
+  // Run spin animation on the correct physical screen
+  await spinRoulette(spinningScreenId, { filter: () => activeProcesses }, targetIndex);
 
-  // Flash effect on termination
-  terminationFlash();
+  // Update screens with new process list (mapped to correct physical screens)
+  const myScreenId = getScreenIdForPlayer(state.playerId);
+  const opponentId = state.playerId === 1 ? 2 : 1;
+  const opponentScreenId = getScreenIdForPlayer(opponentId);
 
-  // Update screens with new process list
-  updateScreenProcesses(1, state.processes);
-  updateScreenProcesses(2, state.processes);
+  updateScreenProcesses(myScreenId, state.processes);
+  updateScreenProcesses(opponentScreenId, state.processes);
   updateHologramProcesses(state.processes);
 
   // Update process count
   updateProcessCount();
-
-  spinBtn.classList.remove('spinning');
 }
 
 /**
@@ -205,9 +230,12 @@ function handleGameOver(data) {
   // Determine if this client is the loser
   const isLoser = loser === state.playerId;
 
+  // Get the physical screen ID for the loser
+  const loserScreenId = getScreenIdForPlayer(loser);
+
   if (isLoser) {
     // Show BSOD on this client's screen mesh (in 3D scene)
-    showScreenBSOD(state.playerId, failedProcess);
+    showScreenBSOD(loserScreenId, failedProcess);
     showHologramBSOD(failedProcess);
 
     // Show full-screen BSOD overlay
@@ -215,13 +243,8 @@ function handleGameOver(data) {
   } else {
     // Winner stays in game view
     // Show BSOD on loser's screen in 3D
-    showScreenBSOD(loser, failedProcess);
+    showScreenBSOD(loserScreenId, failedProcess);
     showHologramBSOD(failedProcess);
-
-    // Show victory overlay (semi-transparent over 3D scene)
-    setTimeout(() => {
-      showVictoryScreen();
-    }, 1000);
   }
 }
 
@@ -229,8 +252,17 @@ function handleGameOver(data) {
  * Handle opponent disconnect
  */
 function handleOpponentDisconnected(data) {
-  alert('Your opponent disconnected. You win by default!');
-  showVictoryScreen();
+  // Return to lobby
+  state.gameOver = true;
+  state.playerId = null;
+  state.processes = [];
+
+  gameScreen.classList.add('hidden');
+  lobbyScreen.classList.remove('hidden');
+
+  const statusEl = document.getElementById('lobby-status');
+  if (statusEl) statusEl.textContent = 'Opponent disconnected. Click to join a new game.';
+  if (joinBtn) joinBtn.disabled = false;
 }
 
 /**

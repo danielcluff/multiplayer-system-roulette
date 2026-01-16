@@ -3,10 +3,10 @@
 import * as THREE from 'three';
 import { getScene, onAnimate } from './setup.js';
 
-const HOLOGRAM_WIDTH = 2.5;
-const HOLOGRAM_HEIGHT = 1.8;
+const HOLOGRAM_WIDTH = 5.0; // Bigger (was 3.2)
+const HOLOGRAM_HEIGHT = 3.5; // Bigger (was 2.4)
 const CANVAS_WIDTH = 512;
-const CANVAS_HEIGHT = 368;
+const CANVAS_HEIGHT = 384; // 4:3ish ratio
 
 class HolographicProjector {
   constructor() {
@@ -27,22 +27,27 @@ class HolographicProjector {
     this.texture.minFilter = THREE.LinearFilter;
 
     // Create hologram display (semi-transparent floating panel)
-    const geometry = new THREE.PlaneGeometry(HOLOGRAM_WIDTH, HOLOGRAM_HEIGHT);
+    // We'll use a curved plane (Cylinder segment) for a "high tech" feel
+    // Actually, simple plane is easier to read, let's stick to plane but maybe multiple layers?
+    // Let's go with a Plane but add a "tech frame" geometry around it
+    const planeGeo = new THREE.PlaneGeometry(HOLOGRAM_WIDTH, HOLOGRAM_HEIGHT);
+    
     const material = new THREE.MeshBasicMaterial({
       map: this.texture,
       transparent: true,
-      opacity: 0.85,
+      opacity: 0.9,
       side: THREE.DoubleSide,
       blending: THREE.AdditiveBlending,
+      depthWrite: false
     });
 
-    this.display = new THREE.Mesh(geometry, material);
-    this.display.position.set(0, 2.5, 0);
-
-    // Create projector base
+    this.display = new THREE.Mesh(planeGeo, material);
+    this.display.position.set(0, 3.5, 0); // Lift it up (was 2.5) to clear tilted screens
+    
+    // Create projector base (Fancy mechanism in the hole)
     this.createProjectorBase();
 
-    // Create hologram glow effect
+    // Create hologram glow effect & rays
     this.createGlowEffect();
 
     // Create particle system
@@ -57,71 +62,86 @@ class HolographicProjector {
 
   createProjectorBase() {
     const scene = getScene();
+    
+    this.baseGroup = new THREE.Group();
+    scene.add(this.baseGroup);
 
-    // Pedestal cylinder
-    const pedestalGeometry = new THREE.CylinderGeometry(0.3, 0.4, 0.5, 16);
-    const pedestalMaterial = new THREE.MeshStandardMaterial({
-      color: 0x333344,
-      metalness: 0.8,
-      roughness: 0.2,
+    // Main central emitter spike
+    const spikeGeo = new THREE.ConeGeometry(0.2, 1.5, 8);
+    const spikeMat = new THREE.MeshStandardMaterial({
+        color: 0x222222,
+        roughness: 0.3,
+        metalness: 0.9
     });
-    this.pedestal = new THREE.Mesh(pedestalGeometry, pedestalMaterial);
-    this.pedestal.position.set(0, 0.25, 0);
-    scene.add(this.pedestal);
+    this.spike = new THREE.Mesh(spikeGeo, spikeMat);
+    this.spike.position.y = 0.5; // rising from hole
+    this.baseGroup.add(this.spike);
 
-    // Emitter ring on top
-    const ringGeometry = new THREE.TorusGeometry(0.25, 0.05, 8, 32);
-    const ringMaterial = new THREE.MeshBasicMaterial({
-      color: 0x00ffaa,
-      transparent: true,
-      opacity: 0.8,
-    });
-    this.emitterRing = new THREE.Mesh(ringGeometry, ringMaterial);
-    this.emitterRing.rotation.x = Math.PI / 2;
-    this.emitterRing.position.set(0, 0.52, 0);
-    scene.add(this.emitterRing);
+    // Floating rings around the emitter
+    const ringGeo = new THREE.TorusGeometry(0.8, 0.05, 6, 4); // Square-ish rings
+    const ringMat = new THREE.MeshBasicMaterial({ color: 0x0088ff, wireframe: true });
+    
+    this.rings = [];
+    for(let i=0; i<3; i++) {
+        const ring = new THREE.Mesh(ringGeo, ringMat);
+        ring.position.y = 0.5 + (i * 0.3);
+        ring.rotation.x = Math.PI / 2;
+        ring.scale.set(1 - (i*0.2), 1 - (i*0.2), 1);
+        this.baseGroup.add(ring);
+        this.rings.push(ring);
+    }
   }
 
   createGlowEffect() {
     const scene = getScene();
-
-    // Vertical beam of light
-    const beamGeometry = new THREE.CylinderGeometry(0.1, 0.3, 2, 16, 1, true);
+    
+    // Vertical beam of light (Conical)
+    const beamGeometry = new THREE.CylinderGeometry(3.5, 0.5, 6, 32, 1, true);
     const beamMaterial = new THREE.MeshBasicMaterial({
-      color: 0x00ff88,
+      color: 0x0088ff,
       transparent: true,
-      opacity: 0.15,
+      opacity: 0.05,
       side: THREE.DoubleSide,
       blending: THREE.AdditiveBlending,
+      depthWrite: false,
     });
     this.beam = new THREE.Mesh(beamGeometry, beamMaterial);
-    this.beam.position.set(0, 1.5, 0);
+    this.beam.position.set(0, 3, 0);
     scene.add(this.beam);
+    
+    // Add spotlight at hologram location for scene illumination
+    // Blue soft light (was Cyan 0x00ffff)
+    this.holoLight = new THREE.PointLight(0x0088ff, 1.5, 15);
+    this.holoLight.position.set(0, 3.5, 0);
+    scene.add(this.holoLight);
   }
 
   createParticles() {
     const scene = getScene();
 
-    // Create particle geometry
-    const particleCount = 100;
+    // Create floating "data" particles rising up
+    const particleCount = 200;
     const positions = new Float32Array(particleCount * 3);
+    const sizes = new Float32Array(particleCount);
 
     for (let i = 0; i < particleCount; i++) {
-      const radius = 0.5 + Math.random() * 0.5;
       const theta = Math.random() * Math.PI * 2;
-      const y = Math.random() * 2;
-
-      positions[i * 3] = Math.cos(theta) * radius;
-      positions[i * 3 + 1] = 0.5 + y;
-      positions[i * 3 + 2] = Math.sin(theta) * radius;
+      const r = Math.random() * 1.5; // Radius within hole
+      
+      positions[i * 3] = Math.cos(theta) * r;
+      positions[i * 3 + 1] = Math.random() * 4; // Height
+      positions[i * 3 + 2] = Math.sin(theta) * r;
+      
+      sizes[i] = Math.random();
     }
 
     const geometry = new THREE.BufferGeometry();
     geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    geometry.setAttribute('size', new THREE.BufferAttribute(sizes, 1)); // We can use this in shader if we had custom shader
 
     const material = new THREE.PointsMaterial({
-      color: 0x00ffaa,
-      size: 0.05,
+      color: 0x0088ff,
+      size: 0.03,
       transparent: true,
       opacity: 0.6,
       blending: THREE.AdditiveBlending,
@@ -134,11 +154,65 @@ class HolographicProjector {
   addToScene() {
     const scene = getScene();
     scene.add(this.display);
+    
+    // Create floating text for Target Player
+    // Separate from canvas texture so it's above/below
+    const canvas = document.createElement('canvas');
+    canvas.width = 512;
+    canvas.height = 64;
+    const ctx = canvas.getContext('2d');
+    
+    this.targetTextTexture = new THREE.CanvasTexture(canvas);
+    this.targetTextTexture.minFilter = THREE.LinearFilter;
+    
+    const mat = new THREE.MeshBasicMaterial({
+        map: this.targetTextTexture,
+        transparent: true,
+        side: THREE.DoubleSide,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false
+    });
+    
+    const geo = new THREE.PlaneGeometry(HOLOGRAM_WIDTH, HOLOGRAM_WIDTH * (64/512));
+    this.targetTextLabel = new THREE.Mesh(geo, mat);
+    
+    // Position below the main display
+    // Main display is at (0, 3.5, 0) with height 3.5. Bottom edge is at 3.5 - 1.75 = 1.75
+    // Place label slightly below that.
+    this.targetTextLabel.position.set(0, 1.4, 0); 
+    
+    // We want it to move with the display, so let's attach it to the display mesh if possible?
+    // Or we just animate it in sync in animate()
+    // Let's add it to scene for now and sync in animate to keep independent rotation control if needed
+    scene.add(this.targetTextLabel);
+    
+    this.renderTargetLabel();
   }
 
   setCurrentPlayer(playerId) {
     this.currentPlayerId = playerId;
     this.render();
+    this.renderTargetLabel();
+  }
+  
+  renderTargetLabel() {
+      if(!this.targetTextLabel) return;
+      
+      const canvas = this.targetTextTexture.image;
+      const ctx = canvas.getContext('2d');
+      const w = canvas.width;
+      const h = canvas.height;
+      
+      ctx.clearRect(0, 0, w, h);
+      
+      ctx.font = 'bold 40px monospace';
+      ctx.textAlign = 'center';
+      ctx.fillStyle = '#0088ff';
+      ctx.shadowColor = '#0088ff';
+      ctx.shadowBlur = 10;
+      ctx.fillText(`TARGET: PLAYER ${this.currentPlayerId}`, w/2, h/2 + 10);
+      
+      this.targetTextTexture.needsUpdate = true;
   }
 
   setProcesses(processes) {
@@ -159,7 +233,7 @@ class HolographicProjector {
 
   render() {
     const ctx = this.ctx;
-
+    
     if (this.showBSOD) {
       this.renderBSOD();
     } else {
@@ -175,18 +249,19 @@ class HolographicProjector {
     const h = CANVAS_HEIGHT;
 
     // Transparent dark background with blue tint for hologram feel
-    ctx.fillStyle = 'rgba(26, 26, 36, 0.85)';
+    ctx.clearRect(0,0,w,h);
+    ctx.fillStyle = 'rgba(26, 36, 70, 0.6)'; // More blue in background (was 26,36,56)
     ctx.fillRect(0, 0, w, h);
 
-    // Decorative Borders (Top) - Hologram Blue/Cyan
-    ctx.fillStyle = 'rgba(0, 255, 255, 0.6)'; // Cyan-ish
+    // Decorative Borders (Top) - Hologram Blue
+    ctx.fillStyle = 'rgba(0, 136, 255, 0.6)'; // Blue 0x0088ff
     ctx.font = '14px monospace';
     const borderChar = 'P';
     const borderStr = borderChar.repeat(Math.floor(w / 10)); 
     ctx.textAlign = 'center';
     
     // Add glow to text
-    ctx.shadowColor = '#00ffff';
+    ctx.shadowColor = '#0088ff';
     ctx.shadowBlur = 8;
     ctx.fillText(borderStr, w / 2, 20);
 
@@ -194,79 +269,104 @@ class HolographicProjector {
     ctx.fillStyle = 'rgba(137, 180, 250, 0.9)'; // Light Blue
     ctx.font = 'bold 24px monospace';
     ctx.fillText('PID ROULETTE', w / 2, 50);
+    
+    // Removed TARGET: PLAYER text from inside screen
+    // ctx.font = '16px monospace';
+    // ctx.fillStyle = '#00ffaa';
+    // ctx.fillText(`TARGET: PLAYER ${this.currentPlayerId}`, w/2, 75);
 
-    // Process list
+    // Process list - infinite scroll wheel with fixed center caret
     const activeProcesses = this.processes.filter(p => !p.isTerminated);
+    const numProcesses = activeProcesses.length;
+
+    if (numProcesses === 0) return;
+
     const rowHeight = 28;
-    
-    // Scroll logic (same as screen)
-    const visibleCount = 8; 
-    let startIdx = 0;
-    
-    if (this.highlightedIndex >= visibleCount) {
-      startIdx = this.highlightedIndex - (visibleCount - 1);
-    }
-    if (startIdx > activeProcesses.length - visibleCount) {
-      startIdx = Math.max(0, activeProcesses.length - visibleCount);
-    }
-    
-    if (this.highlightedIndex !== -1) {
-       if (this.highlightedIndex < startIdx) startIdx = this.highlightedIndex;
-       if (this.highlightedIndex >= startIdx + visibleCount) startIdx = this.highlightedIndex - visibleCount + 1;
-    }
+    const listAreaTop = 70;
+    const listAreaBottom = h - 40;
+    const listAreaHeight = listAreaBottom - listAreaTop;
+    const centerY = listAreaTop + listAreaHeight / 2;
 
-    const startY = 90;
-    const visibleProcesses = activeProcesses.slice(startIdx, startIdx + visibleCount);
+    // Fixed caret/selection indicator in center (hologram blue style)
+    ctx.fillStyle = 'rgba(0, 136, 255, 0.2)';
+    ctx.shadowBlur = 0;
+    ctx.fillRect(20, centerY - 14, w - 40, rowHeight);
+    ctx.strokeStyle = 'rgba(0, 136, 255, 0.8)';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(20, centerY - 14, w - 40, rowHeight);
 
-    visibleProcesses.forEach((process, i) => {
-      const realIndex = startIdx + i;
-      const y = startY + i * rowHeight;
-      const isHighlighted = realIndex === this.highlightedIndex;
+    // Calculate how many rows above and below center we can show
+    const rowsAbove = Math.ceil((centerY - listAreaTop) / rowHeight);
+    const rowsBelow = Math.ceil((listAreaBottom - centerY) / rowHeight);
 
+    const highlightIdx = this.highlightedIndex === -1 ? 0 : this.highlightedIndex;
+
+    // Draw items as infinite scroll wheel (wrapping around)
+    for (let offset = -rowsAbove; offset <= rowsBelow; offset++) {
+      const y = centerY + offset * rowHeight;
+
+      // Skip if outside visible area
+      if (y < listAreaTop - 10 || y > listAreaBottom + 10) continue;
+
+      // Calculate wrapped index (infinite scroll)
+      let processIdx = (highlightIdx + offset) % numProcesses;
+      if (processIdx < 0) processIdx += numProcesses;
+
+      const process = activeProcesses[processIdx];
       const pidStr = process.pid.toString();
       const nameStr = process.name.length > 30 ? process.name.substring(0, 27) + '...' : process.name;
       const displayStr = `${pidStr}   ${nameStr}`;
 
+      const isHighlighted = offset === 0;
+
       if (isHighlighted) {
-        // Highlight logic
         ctx.fillStyle = 'rgba(249, 226, 175, 1)'; // Yellow/Gold
         ctx.font = 'bold 18px monospace';
         ctx.shadowColor = '#f9e2af';
-        ctx.shadowBlur = 15; // Stronger glow for hologram highlight
+        ctx.shadowBlur = 15;
         ctx.fillText(`> ${displayStr} <`, w / 2, y);
       } else {
-        // Normal text
-        ctx.fillStyle = 'rgba(205, 214, 244, 0.8)'; // Off-white/Grey, slight transparency
+        // Fade out items further from center
+        const distance = Math.abs(offset);
+        const alpha = Math.max(0.3, 0.8 - distance * 0.12);
+        ctx.fillStyle = `rgba(205, 214, 244, ${alpha})`;
         ctx.font = '18px monospace';
-        ctx.shadowColor = '#00ffff'; // Subtle blue glow for normal text
+        ctx.shadowColor = '#0088ff';
         ctx.shadowBlur = 3;
         ctx.fillText(displayStr, w / 2, y);
       }
-    });
+    }
 
     // Decorative Borders (Bottom)
-    ctx.fillStyle = 'rgba(0, 255, 255, 0.6)';
+    ctx.fillStyle = 'rgba(0, 136, 255, 0.6)';
     ctx.font = '14px monospace';
     const bottomBorder = 'L' + 'p'.repeat(Math.floor(w / 10));
     ctx.shadowBlur = 8;
     ctx.fillText(bottomBorder, w / 2, h - 20);
 
-    // Reset styles
     ctx.textAlign = 'start';
     ctx.shadowBlur = 0;
     
     // Add scanlines for hologram effect
-    ctx.fillStyle = 'rgba(0, 255, 255, 0.03)';
+    ctx.fillStyle = 'rgba(0, 136, 255, 0.1)';
     for (let i = 0; i < h; i += 4) {
         ctx.fillRect(0, i, w, 2);
     }
+    
+    // Tech corners
+    ctx.strokeStyle = '#0088ff';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(10, 10, 20, 20); // TL
+    ctx.strokeRect(w-30, 10, 20, 20); // TR
+    ctx.strokeRect(10, h-30, 20, 20); // BL
+    ctx.strokeRect(w-30, h-30, 20, 20); // BR
   }
 
   renderBSOD() {
     const ctx = this.ctx;
 
     // Blue background with slight transparency
-    ctx.fillStyle = 'rgba(0, 120, 215, 0.95)';
+    ctx.fillStyle = 'rgba(0, 120, 215, 0.8)';
     ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
 
     // Glitch effect border
@@ -298,26 +398,65 @@ class HolographicProjector {
   }
 
   animate(time) {
-    // Rotate particles slowly
-    if (this.particles) {
-      this.particles.rotation.y = time * 0.3;
-    }
-
-    // Pulse the emitter ring
-    if (this.emitterRing) {
-      const pulse = 0.8 + Math.sin(time * 3) * 0.2;
-      this.emitterRing.material.opacity = pulse;
+    // Spin the rings
+    if (this.rings) {
+        this.rings.forEach((ring, i) => {
+            ring.rotation.z = time * (0.5 + i * 0.2);
+            ring.rotation.x = Math.PI/2 + Math.sin(time + i) * 0.2;
+        });
     }
 
     // Gentle float animation on display
     if (this.display) {
-      this.display.position.y = 2.5 + Math.sin(time * 1.5) * 0.05;
+      const floatY = Math.sin(time * 1.5) * 0.1;
+      this.display.position.y = 3.5 + floatY;
+      // Make it always face camera?
+      // this.display.lookAt(getCamera().position);
+      // Or just slowly rotate
+      this.display.rotation.y = Math.sin(time * 0.5) * 0.2;
+      
+      // Sync target label with float
+      if (this.targetTextLabel) {
+          // Keep label below display, moving in sync
+          this.targetTextLabel.position.y = 1.4 + floatY;
+          // Sync rotation too so it faces same way
+          this.targetTextLabel.rotation.y = this.display.rotation.y;
+      }
+    }
+    
+    // Update particles
+    if (this.particles) {
+        const positions = this.particles.geometry.attributes.position.array;
+        for(let i=0; i < positions.length / 3; i++) {
+            // Move up
+            positions[i*3 + 1] += 0.02;
+            
+            // Reset if too high
+            if(positions[i*3 + 1] > 4) {
+                positions[i*3 + 1] = 0;
+            }
+        }
+        this.particles.geometry.attributes.position.needsUpdate = true;
     }
   }
 
   dispose() {
     if (this.unsubscribeAnimate) {
       this.unsubscribeAnimate();
+    }
+    
+    // Cleanup extra meshes
+    if (this.targetTextLabel) {
+        const scene = getScene();
+        scene.remove(this.targetTextLabel);
+        this.targetTextLabel.geometry.dispose();
+        this.targetTextLabel.material.dispose();
+        this.targetTextTexture.dispose();
+    }
+    
+    if (this.holoLight) {
+        const scene = getScene();
+        scene.remove(this.holoLight);
     }
   }
 }
