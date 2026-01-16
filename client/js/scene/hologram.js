@@ -369,12 +369,10 @@ class HolographicProjector {
     ctx.fillStyle = 'rgba(0, 120, 215, 0.8)';
     ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
 
-    // Glitch effect border
-    ctx.strokeStyle = '#ff0000';
-    ctx.lineWidth = 4;
-    ctx.setLineDash([10, 5]);
-    ctx.strokeRect(5, 5, CANVAS_WIDTH - 10, CANVAS_HEIGHT - 10);
-    ctx.setLineDash([]);
+    // Removed Glitch effect border as requested
+    // ctx.strokeStyle = '#ff0000';
+    // ctx.lineWidth = 4;
+    // ...
 
     // Sad face
     ctx.fillStyle = '#ffffff';

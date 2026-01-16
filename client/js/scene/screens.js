@@ -122,23 +122,7 @@ class PlayerScreen {
         back.rotation.z = Math.PI / 4; // Square it up
         back.position.z = -0.8;
         this.head.add(back);
-
-        // Base/Stand (Part of Root, stays flat)
-        // Since the screen is tilted 45 deg, let's make a wedge-like support or just a short stand
-        // Removed protrusion that was overlapping screen
-
-        // Removed the upper stand piece entirely as requested to ensure no overlap
-        // const standGeometry = new THREE.BoxGeometry(0.6, 0.5, 0.4);
-        // ...
-
-        this.head.position.y = 0.2;
-
-        // Base plate only
-        const baseGeometry = new THREE.BoxGeometry(1.5, 0.1, 1.0);
-        const base = new THREE.Mesh(baseGeometry, bezelMaterial);
-        base.position.y = -0.65;
-        base.position.z = -0.2;
-        this.root.add(base);
+        this.head.position.y = 0.5;
     }
 
     addToScene() {
@@ -363,11 +347,15 @@ export function createPlayerScreens() {
     // If we rotate Y by ang, normal becomes (sin(ang), cos(ang)).
     // So rotation = ang.
 
+    // Rotate the side monitors towards the camera by 15 degrees (PI/12)
+    // For the Right screen (P2), we subtract PI/12 from its rotation to turn it left (towards center/camera)
+    const tiltIn = Math.PI / 12; // 15 degrees
+
     const ang2 = Math.PI / 3; // +60 deg
     screens[2] = new PlayerScreen(
         2,
         new THREE.Vector3(Math.sin(ang2) * tableRadius, height, Math.cos(ang2) * tableRadius),
-        ang2
+        ang2 - tiltIn
     );
     screens[2].addToScene();
 
@@ -385,10 +373,26 @@ export function createPlayerScreens() {
 
     let dummyId = 3;
     remainingAngles.forEach((ang) => {
+        // Calculate rotation tilt based on side relative to camera (P1)
+        // P1 is at 0. P2 is at 60 (Right). Left neighbor is at 300 (-60).
+        // For P2 (Right), we rotated -15 deg (Left/CCW) to face camera.
+        // For Left neighbor (300 deg), we should rotate +15 deg (Right/CW) to face camera.
+
+        let rotation = ang;
+        if (Math.abs(ang - (5 * Math.PI) / 3) < 0.01) {
+            // Left neighbor
+            rotation += tiltIn;
+        } else if (Math.abs(ang - (2 * Math.PI) / 3) < 0.01) {
+            // Back Right
+            // Maybe tilt these too? User only said "side monitors".
+            // Let's just do the ones immediately adjacent to P1 visible in camera.
+            // P2 (Right) and P6 (Left, which is 5PI/3).
+        }
+
         const dummy = new PlayerScreen(
             dummyId,
             new THREE.Vector3(Math.sin(ang) * tableRadius, height, Math.cos(ang) * tableRadius),
-            ang
+            rotation
         );
         dummy.addToScene();
         screens[dummyId] = dummy;
